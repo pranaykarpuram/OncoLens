@@ -10,6 +10,8 @@ import type {
   WorkspaceSourceBackedObservation,
 } from '../api/client';
 import { EvidenceCard } from '../components/EvidenceCard';
+import { SourceVisualization } from '../components/SourceVisualization';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs';
 
 function timelineCategory(kind: string | undefined): string {
   const u = (kind || '').toLowerCase();
@@ -267,6 +269,7 @@ export function PatientWorkspaceScreen() {
 
   const [selectedEvidence, setSelectedEvidence] = useState<number | null>(null);
   const [selectedChartHit, setSelectedChartHit] = useState<EvidenceSearchHit | null>(null);
+  const [sourceViewerTab, setSourceViewerTab] = useState<"trail" | "viz">("trail");
   const [timelineFilter, setTimelineFilter] = useState('All');
 
   useEffect(() => {
@@ -324,11 +327,13 @@ export function PatientWorkspaceScreen() {
   const selectObservation = (id: number) => {
     setSelectedChartHit(null);
     setSelectedEvidence(id);
+    setSourceViewerTab('trail');
   };
 
   const selectChartHit = (hit: EvidenceSearchHit) => {
     setSelectedEvidence(null);
     setSelectedChartHit(hit);
+    setSourceViewerTab('trail');
   };
 
   const timeline = payload?.timeline ?? [];
@@ -817,171 +822,209 @@ export function PatientWorkspaceScreen() {
                 Clinician review required.
               </p>
             </div>
-          ) : selectedChartHit ? (
-            <div className="space-y-4">
-              <div className="pb-3 border-b border-[#E2E8F0]">
-                <div className="flex flex-wrap items-center gap-2 mb-1">
-                  <span
-                    className={`text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full border ${resultKindPillClass(selectedChartHit.result_kind)}`}
-                  >
-                    {resultKindLabel(selectedChartHit.result_kind)}
-                  </span>
-                  <p className="font-medium text-[#0F172A] text-sm">
-                    {selectedChartHit.source_type ?? selectedChartHit.source_kind ?? 'Chart excerpt'}
-                  </p>
-                </div>
-                <p className="text-xs text-[#64748B]">
-                  Source date:{' '}
-                  {selectedChartHit.source_date ? formatTimelineDate(selectedChartHit.source_date) : '—'}
-                  {selectedChartHit.similarity_score != null && selectedChartHit.similarity_score !== undefined
-                    ? ` · Similarity ${Number(selectedChartHit.similarity_score).toFixed(4)}`
-                    : ''}
-                </p>
-              </div>
+          ) : (
+            <Tabs value={sourceViewerTab} onValueChange={(v) => setSourceViewerTab(v as "trail" | "viz")}>
+              <TabsList className="mb-3" aria-label="Source viewer modes">
+                <TabsTrigger value="trail">Source Trail</TabsTrigger>
+                <TabsTrigger value="viz">Visualization</TabsTrigger>
+              </TabsList>
 
-              <div className="bg-[#F8FAFC] rounded-lg p-4 border border-[#E2E8F0]">
-                <p className="text-xs uppercase tracking-wide text-[#94A3B8] mb-2 font-medium">Evidence excerpt</p>
-                <p className="text-sm text-[#0F172A] leading-relaxed whitespace-pre-wrap">
-                  {selectedChartHit.matched_snippet ?? '—'}
-                </p>
-              </div>
+              <TabsContent value="trail">
+                {selectedChartHit ? (
+                  <div className="space-y-4">
+                    <div className="pb-3 border-b border-[#E2E8F0]">
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
+                        <span
+                          className={`text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full border ${resultKindPillClass(selectedChartHit.result_kind)}`}
+                        >
+                          {resultKindLabel(selectedChartHit.result_kind)}
+                        </span>
+                        <p className="font-medium text-[#0F172A] text-sm">
+                          {selectedChartHit.source_type ?? selectedChartHit.source_kind ?? 'Chart excerpt'}
+                        </p>
+                      </div>
+                      <p className="text-xs text-[#64748B]">
+                        Source date:{' '}
+                        {selectedChartHit.source_date ? formatTimelineDate(selectedChartHit.source_date) : '—'}
+                        {selectedChartHit.similarity_score != null && selectedChartHit.similarity_score !== undefined
+                          ? ` · Similarity ${Number(selectedChartHit.similarity_score).toFixed(4)}`
+                          : ''}
+                      </p>
+                    </div>
 
-              {selectedChartHit.extracted_value ? (
-                <div>
-                  <p className="text-xs uppercase tracking-wide text-[#94A3B8] mb-2 font-medium">Extracted value</p>
-                  <p className="text-sm font-semibold text-[#0F172A]">{selectedChartHit.extracted_value}</p>
-                </div>
-              ) : null}
+                    <div className="bg-[#F8FAFC] rounded-lg p-4 border border-[#E2E8F0]">
+                      <p className="text-xs uppercase tracking-wide text-[#94A3B8] mb-2 font-medium">Evidence excerpt</p>
+                      <p className="text-sm text-[#0F172A] leading-relaxed whitespace-pre-wrap">
+                        {selectedChartHit.matched_snippet ?? '—'}
+                      </p>
+                    </div>
 
-              <div>
-                <p className="text-xs uppercase tracking-wide text-[#94A3B8] mb-2 font-medium">Why this matched</p>
-                <p className="text-sm text-[#64748B] leading-relaxed">{selectedChartHit.why_matched ?? '—'}</p>
-              </div>
+                    {selectedChartHit.extracted_value ? (
+                      <div>
+                        <p className="text-xs uppercase tracking-wide text-[#94A3B8] mb-2 font-medium">Extracted value</p>
+                        <p className="text-sm font-semibold text-[#0F172A]">{selectedChartHit.extracted_value}</p>
+                      </div>
+                    ) : null}
 
-              <div className="flex flex-wrap gap-2">
-                {selectedChartHit.source_url ? (
-                  <a
-                    href={selectedChartHit.source_url}
-                    className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-[#2563EB] border border-[#E2E8F0] rounded-lg hover:bg-[#F8FAFC]"
-                  >
-                    Open linked record
-                  </a>
+                    <div>
+                      <p className="text-xs uppercase tracking-wide text-[#94A3B8] mb-2 font-medium">Why this matched</p>
+                      <p className="text-sm text-[#64748B] leading-relaxed">{selectedChartHit.why_matched ?? '—'}</p>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      {selectedChartHit.source_url ? (
+                        <a
+                          href={selectedChartHit.source_url}
+                          className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-[#2563EB] border border-[#E2E8F0] rounded-lg hover:bg-[#F8FAFC]"
+                        >
+                          Open linked record
+                        </a>
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          navigate(
+                            `/search?patient=${encodeURIComponent(patientId)}&q=${encodeURIComponent(chartQuery)}`,
+                          )
+                        }
+                        className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-[#64748B] border border-[#E2E8F0] rounded-lg hover:bg-[#F8FAFC]"
+                      >
+                        View in evidence search
+                      </button>
+                    </div>
+
+                    <div className="p-2.5 bg-blue-50 rounded-lg border border-blue-100">
+                      <p className="text-xs text-blue-800 leading-relaxed">
+                        Evidence found in chart text; excerpt shown for clinician review only. Source-backed where tied to an
+                        indexed record. Does not replace independent clinical judgment.
+                      </p>
+                    </div>
+                  </div>
+                ) : selectedClinical ? (
+                  <div className="space-y-4">
+                    <div className="pb-3 border-b border-[#E2E8F0]">
+                      <span
+                        className={`inline-flex mb-2 text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-md border ${
+                          selectedClinical.raw.status === 'needs_review'
+                            ? 'bg-red-50 text-red-800 border-red-100'
+                            : selectedClinical.raw.status === 'watch'
+                              ? 'bg-amber-50 text-amber-900 border-amber-100'
+                              : 'bg-slate-50 text-slate-700 border-slate-200'
+                        }`}
+                      >
+                        {selectedClinical.statusBadge}
+                      </span>
+                      <p className="font-semibold text-[#0F172A] mb-1 text-sm leading-snug">{selectedClinical.headline}</p>
+                      <p className="text-[11px] text-[#64748B]">
+                        Chart review status: {patientReviewLabel(p?.review_status)} · Evidence found in source documents
+                      </p>
+                    </div>
+
+                    {selectedClinical.keyFact ? (
+                      <div>
+                        <p className="text-xs uppercase tracking-wide text-[#94A3B8] mb-2 font-medium">
+                          Key extracted detail
+                        </p>
+                        <p className="text-sm font-semibold text-[#0F172A] tracking-tight">{selectedClinical.keyFact}</p>
+                      </div>
+                    ) : null}
+
+                    <div className="bg-[#F8FAFC] rounded-lg p-4 border border-[#E2E8F0]">
+                      <p className="text-xs uppercase tracking-wide text-[#94A3B8] mb-2 font-medium">
+                        Why this surfaced
+                      </p>
+                      <p className="text-sm text-[#0F172A] leading-relaxed">{selectedClinical.whySurfaced}</p>
+                    </div>
+
+                    <div>
+                      <p className="text-xs uppercase tracking-wide text-[#94A3B8] mb-2 font-medium">
+                        Exact source excerpts
+                      </p>
+                      {(selectedClinical.raw.linked_evidence_items ?? []).length === 0 ? (
+                        <p className="text-xs text-[#64748B]">
+                          Linked excerpts will appear here when evidence items are attached. May warrant clinician review.
+                        </p>
+                      ) : (
+                        <ul className="space-y-3">
+                          {(selectedClinical.raw.linked_evidence_items ?? []).map((item) => {
+                            const linkedObs: WorkspaceObservationRow | undefined =
+                              item.source_type === 'observation' && item.source_id != null
+                                ? observations.find((o) => o.id === item.source_id)
+                                : undefined;
+                            return (
+                              <li key={item.id} className="text-xs bg-[#F8FAFC] rounded-lg p-3 border border-[#E2E8F0]">
+                                <p className="font-semibold text-[#0F172A] text-sm mb-1">{item.title}</p>
+                                <p className="text-[11px] text-[#64748B] mb-2">
+                                  {sourceTypeLabel(item.source_type)}
+                                  {item.evidence_date ? ` · ${formatTimelineDate(item.evidence_date)}` : ''}
+                                  {item.confidence != null ? ` · Confidence ${item.confidence}` : ''}
+                                </p>
+                                <p className="text-sm text-[#0F172A] leading-relaxed whitespace-pre-wrap">{item.snippet}</p>
+                                {linkedObs ? (
+                                  <div className="mt-2 pt-2 border-t border-[#E2E8F0] text-[11px] text-[#475569] space-y-0.5">
+                                    <p>
+                                      <span className="font-medium text-[#0F172A]">Observation:</span> {linkedObs.name}{' '}
+                                      {linkedObs.value_text ??
+                                        (linkedObs.value_number != null ? String(linkedObs.value_number) : '')}{' '}
+                                      {linkedObs.unit ?? ''}
+                                    </p>
+                                    <p>
+                                      Confirmation: <span className="font-medium">{linkedObs.confirmation_status}</span>
+                                      {linkedObs.observed_at
+                                        ? ` · Observed ${formatTimelineDate(linkedObs.observed_at)}`
+                                        : ''}
+                                    </p>
+                                    {linkedObs.source_snippet ? (
+                                      <p className="text-[#64748B] italic mt-1">&quot;{linkedObs.source_snippet}&quot;</p>
+                                    ) : null}
+                                  </div>
+                                ) : null}
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
+                    </div>
+
+                    {selectedClinical.raw.reason?.startsWith('__rule__:') ? (
+                      <details className="text-[11px] text-[#94A3B8]">
+                        <summary className="cursor-pointer hover:text-[#64748B]">Technical reference</summary>
+                        <pre className="mt-1 whitespace-pre-wrap font-mono text-[10px]">{selectedClinical.raw.reason}</pre>
+                      </details>
+                    ) : null}
+
+                    <div className="p-2.5 bg-blue-50 rounded-lg border border-blue-100">
+                      <p className="text-xs text-blue-800 leading-relaxed">
+                        Source-backed observation extracted from this chart. May warrant clinician review. Not a diagnosis or
+                        treatment recommendation.
+                      </p>
+                    </div>
+                  </div>
                 ) : null}
-                <button
-                  type="button"
-                  onClick={() => navigate(`/search?patient=${encodeURIComponent(patientId)}&q=${encodeURIComponent(chartQuery)}`)}
-                  className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-[#64748B] border border-[#E2E8F0] rounded-lg hover:bg-[#F8FAFC]"
-                >
-                  View in evidence search
-                </button>
-              </div>
+              </TabsContent>
 
-              <div className="p-2.5 bg-blue-50 rounded-lg border border-blue-100">
-                <p className="text-xs text-blue-800 leading-relaxed">
-                  Evidence found in chart text; excerpt shown for clinician review only. Source-backed where tied to an
-                  indexed record. Does not replace independent clinical judgment.
-                </p>
-              </div>
-            </div>
-          ) : selectedClinical ? (
-            <div className="space-y-4">
-              <div className="pb-3 border-b border-[#E2E8F0]">
-                <span
-                  className={`inline-flex mb-2 text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-md border ${
-                    selectedClinical.raw.status === 'needs_review'
-                      ? 'bg-red-50 text-red-800 border-red-100'
-                      : selectedClinical.raw.status === 'watch'
-                        ? 'bg-amber-50 text-amber-900 border-amber-100'
-                        : 'bg-slate-50 text-slate-700 border-slate-200'
-                  }`}
-                >
-                  {selectedClinical.statusBadge}
-                </span>
-                <p className="font-semibold text-[#0F172A] mb-1 text-sm leading-snug">{selectedClinical.headline}</p>
-                <p className="text-[11px] text-[#64748B]">
-                  Chart review status: {patientReviewLabel(p?.review_status)} · Evidence found in source documents
-                </p>
-              </div>
-
-              {selectedClinical.keyFact ? (
-                <div>
-                  <p className="text-xs uppercase tracking-wide text-[#94A3B8] mb-2 font-medium">
-                    Key extracted detail
-                  </p>
-                  <p className="text-sm font-semibold text-[#0F172A] tracking-tight">{selectedClinical.keyFact}</p>
-                </div>
-              ) : null}
-
-              <div className="bg-[#F8FAFC] rounded-lg p-4 border border-[#E2E8F0]">
-                <p className="text-xs uppercase tracking-wide text-[#94A3B8] mb-2 font-medium">
-                  Why this surfaced
-                </p>
-                <p className="text-sm text-[#0F172A] leading-relaxed">{selectedClinical.whySurfaced}</p>
-              </div>
-
-              <div>
-                <p className="text-xs uppercase tracking-wide text-[#94A3B8] mb-2 font-medium">
-                  Exact source excerpts
-                </p>
-                {(selectedClinical.raw.linked_evidence_items ?? []).length === 0 ? (
-                  <p className="text-xs text-[#64748B]">
-                    Linked excerpts will appear here when evidence items are attached. May warrant clinician review.
-                  </p>
+              <TabsContent value="viz">
+                {selectedClinical ? (
+                  <div className="space-y-3">
+                    <SourceVisualization
+                      sourceObservation={selectedClinical.raw}
+                      observations={observations}
+                      timeline={timeline}
+                    />
+                    <div className="p-2.5 bg-blue-50 rounded-lg border border-blue-100">
+                      <p className="text-xs text-blue-800 leading-relaxed">
+                        Generated from source-backed evidence. Clinician review required.
+                      </p>
+                    </div>
+                  </div>
                 ) : (
-                  <ul className="space-y-3">
-                    {(selectedClinical.raw.linked_evidence_items ?? []).map((item) => {
-                      const linkedObs: WorkspaceObservationRow | undefined =
-                        item.source_type === 'observation' && item.source_id != null
-                          ? observations.find((o) => o.id === item.source_id)
-                          : undefined;
-                      return (
-                        <li key={item.id} className="text-xs bg-[#F8FAFC] rounded-lg p-3 border border-[#E2E8F0]">
-                          <p className="font-semibold text-[#0F172A] text-sm mb-1">{item.title}</p>
-                          <p className="text-[11px] text-[#64748B] mb-2">
-                            {sourceTypeLabel(item.source_type)}
-                            {item.evidence_date ? ` · ${formatTimelineDate(item.evidence_date)}` : ''}
-                            {item.confidence != null ? ` · Confidence ${item.confidence}` : ''}
-                          </p>
-                          <p className="text-sm text-[#0F172A] leading-relaxed whitespace-pre-wrap">{item.snippet}</p>
-                          {linkedObs ? (
-                            <div className="mt-2 pt-2 border-t border-[#E2E8F0] text-[11px] text-[#475569] space-y-0.5">
-                              <p>
-                                <span className="font-medium text-[#0F172A]">Observation:</span> {linkedObs.name}{' '}
-                                {linkedObs.value_text ??
-                                  (linkedObs.value_number != null ? String(linkedObs.value_number) : '')}{' '}
-                                {linkedObs.unit ?? ''}
-                              </p>
-                              <p>
-                                Confirmation: <span className="font-medium">{linkedObs.confirmation_status}</span>
-                                {linkedObs.observed_at ? ` · Observed ${formatTimelineDate(linkedObs.observed_at)}` : ''}
-                              </p>
-                              {linkedObs.source_snippet ? (
-                                <p className="text-[#64748B] italic mt-1">&quot;{linkedObs.source_snippet}&quot;</p>
-                              ) : null}
-                            </div>
-                          ) : null}
-                        </li>
-                      );
-                    })}
-                  </ul>
+                  <div className="p-4 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC]">
+                    <p className="text-sm text-[#64748B]">No visualization available for this observation yet.</p>
+                  </div>
                 )}
-              </div>
-
-              {selectedClinical.raw.reason?.startsWith('__rule__:') ? (
-                <details className="text-[11px] text-[#94A3B8]">
-                  <summary className="cursor-pointer hover:text-[#64748B]">Technical reference</summary>
-                  <pre className="mt-1 whitespace-pre-wrap font-mono text-[10px]">{selectedClinical.raw.reason}</pre>
-                </details>
-              ) : null}
-
-              <div className="p-2.5 bg-blue-50 rounded-lg border border-blue-100">
-                <p className="text-xs text-blue-800 leading-relaxed">
-                  Source-backed observation extracted from this chart. May warrant clinician review. Not a diagnosis or
-                  treatment recommendation.
-                </p>
-              </div>
-            </div>
-          ) : null}
+              </TabsContent>
+            </Tabs>
+          )}
         </div>
       </div>
     </div>
