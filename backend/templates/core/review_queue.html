@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Review Queue · OncoLens{% endblock %}
+{% block heading %}Review Queue{% endblock %}
+{% block subtitle %}Charts with new reports, unconfirmed extractions, open source-backed observations, or recent intake activity{% endblock %}
+
+{% block content %}
+<section class="card">
+  <strong>Intake &amp; chart signals ({{ recent_cutoff.date }} → today)</strong>
+  <ul style="margin:.5rem 0 0;line-height:1.6;">
+    <li>New reports in window: {{ new_reports_count }}</li>
+    <li>Rows pending confirmation: {{ needs_confirmation_count }}</li>
+    <li>Patients with unreviewed source-backed observations: {{ patients_with_new_evidence_count }}</li>
+    <li>Active treatment without recent bilirubin (heuristic): {{ missing_recent_labs_count }}</li>
+  </ul>
+</section>
+
+<section class="card">
+  <h3 style="margin-top:0;">Patients surfaced for review</h3>
+  {% if review_patients %}
+  <table class="simple">
+    <thead>
+      <tr><th>Patient</th><th>MRN</th><th>Status</th><th>Diagnosis</th><th>Open workspace</th></tr>
+    </thead>
+    <tbody>
+      {% for p in review_patients %}
+      <tr>
+        <td>{{ p.full_name }}</td>
+        <td>{{ p.medical_record_number }}</td>
+        <td><span class="pill">{{ p.get_review_status_display }}</span></td>
+        <td>{{ p.primary_diagnosis }}</td>
+        <td><a class="btn secondary" href="{{ p.get_absolute_url }}" style="padding:.3rem .65rem;">Open Workspace</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">No queued patients meet the current heuristics.</p>
+  {% endif %}
+</section>
+{% endblock %}

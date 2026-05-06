@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Tumor Board Brief{% endblock %}
+{% block heading %}Tumor board brief{% endblock %}
+{% block subtitle %}Compose deterministic briefs synthesized from staged chart narratives{% endblock %}
+
+{% block content %}
+<section class="card">
+  <form method="post" style="display:flex;flex-direction:column;gap:.65rem;">
+    {% csrf_token %}
+    <label>Patient cohort
+      <select name="patient_id" style="margin-top:.3rem;display:block;width:320px;">
+        <option value="">Select patient...</option>
+        {% for patient in patients %}
+          <option value="{{ patient.pk }}" {% if selected_patient and patient.pk == selected_patient.pk %}selected{% endif %}>
+            {{ patient.full_name }} · {{ patient.medical_record_number }}
+          </option>
+        {% endfor %}
+      </select>
+    </label>
+    <button type="submit" name="generate" value="1">Generate Brief</button>
+  </form>
+</section>
+
+<section class="card">
+  {% if brief %}
+    <p class="pill" style="display:inline;">Generated {{ brief.created_at }} · clinician review disclaimer embedded</p>
+    <h4>Case Summary</h4>
+    <pre style="white-space:pre-wrap;font-family:inherit;line-height:1.45;background:#f8fafc;padding:1rem;border-radius:8px;">{{ brief.case_summary }}</pre>
+
+    <h4>Treatment course</h4>
+    <pre style="white-space:pre-wrap;font-family:inherit;line-height:1.45;background:#f8fafc;padding:1rem;border-radius:8px;">{{ brief.treatment_course }}</pre>
+
+    <h4>Key timeline excerpts (JSON excerpt)</h4>
+    <ul>
+      {% for ev in brief.key_timeline_events|slice:":6" %}
+        <li>{{ ev.date }} — {{ ev.title }} — {{ ev.detail|truncatechars:120 }}</li>
+      {% endfor %}
+    </ul>
+
+    <h4>Evidence of change (structured)</h4>
+    <pre style="white-space:pre-wrap;font-family:inherit;line-height:1.45;background:#f8fafc;padding:1rem;border-radius:8px;">{{ brief.evidence_of_change|truncatechars:2000 }}</pre>
+
+    <h4>Gaps · unconfirmed</h4>
+    <ul>
+      {% for g in brief.missing_or_unconfirmed_data %}
+      <li>{{ g.bullet }}</li>
+      {% endfor %}
+    </ul>
+
+    <h4>Source documents enumerated</h4>
+    <ul>
+      {% for doc in brief.source_documents|slice:":12" %}
+        <li>{{ doc.title }} — {{ doc.report_date }}</li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="muted">Generate a briefing once a cohort member is highlighted — output stores JSON-friendly sections downstream.</p>
+  {% endif %}
+</section>
+
+<p class="danger">Briefings are clinician-editing artifacts synthesized from OCR/pasted evidence. Not diagnoses or therapies.</p>
+{% endblock %}

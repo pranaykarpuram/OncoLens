@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Operations · OncoLens{% endblock %}
+{% block heading %}Operational snapshot{% endblock %}
+{% block subtitle %}Non-clinical rollup for prototyping{% endblock %}
+
+{% block content %}
+<section class="card">
+  <p>Team directory count: {{ user_total }} · Patient charts: {{ patient_total }}</p>
+  <ul>
+    <li>Reports flagged parsed lifecycle: {{ reports_parsed }}</li>
+    <li>Unconfirmed extractor rows awaiting clinicians: {{ unconfirmed_extractions }}</li>
+    <li>Confirmed observation rows surfaced in evidence board: {{ active_observations }}</li>
+  </ul>
+  <p class="muted">
+    Lightweight admin tooling only — escalate production metrics to infra once deployment hardening completes.
+    Data export stubs may mount off Django Admin list exports for now.
+  </p>
+</section>
+{% endblock %}

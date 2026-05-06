@@ -1,0 +1,7 @@
+Django>=4.2,<5
+django-cors-headers>=4.3
+
+# Semantic evidence search (local embeddings; first run downloads model weights)
+sentence-transformers>=2.6.0
+numpy>=1.26.0
+scikit-learn>=1.4.0

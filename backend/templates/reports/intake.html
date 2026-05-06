@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Report intake{% endblock %}
+{% block heading %}Report intake{% endblock %}
+{% block subtitle %}Paste or upload clinician-ready text awaiting confirmation{% endblock %}
+
+{% block content %}
+<form method="post" enctype="multipart/form-data" class="card">
+  {% csrf_token %}
+  {% for field in form %}
+    {% if field.name != 'paste_text' %}
+      <p>{{ field.label_tag }} {{ field }} {{ field.help_text }}</p>
+    {% endif %}
+  {% endfor %}
+  <p><label>{{ form.paste_text.label }}</label><br>{{ form.paste_text }}</p>
+  <button type="submit">Submit for extraction preview</button>
+</form>
+<p class="muted">Uploaded binary documents not parsed locally yet — TXT paste path is deterministic for class demos.</p>
+{% endblock %}

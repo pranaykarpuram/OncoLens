@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Evidence search{% endblock %}
+{% block heading %}Evidence search{% endblock %}
+{% block subtitle %}Lexical retrieval across normalized chart snippets{% endblock %}
+
+{% block content %}
+<form method="get" class="card" style="display:flex;gap:.6rem;">
+  <label>Query <input type="text" name="q" value="{{ q }}"></label>
+  <label>Patient id <input type="text" name="patient" value="{{ patient_filter }}"></label>
+  <button type="submit">Search chart evidence</button>
+</form>
+
+{% if results %}
+<table class="simple card">
+  <thead>
+    <tr><th>Patient</th><th>Type</th><th>Snippet</th><th>Confidence</th><th>Jump</th></tr>
+  </thead>
+  <tbody>
+    {% for row in results %}
+    <tr>
+      <td>{{ row.patient_display }} <span class="muted">(#{{ row.patient_id }})</span></td>
+      <td>{{ row.source_type }}</td>
+      <td>{{ row.matched_snippet|truncatechars:220 }}</td>
+      <td>{{ row.confidence }}</td>
+      <td><a class="btn secondary" href="{{ row.workspace_url }}" style="padding:.25rem .5rem;">Workspace</a></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% if q and not results %}
+<p class="muted card">No indexed hits for {{ q }}. Try alternate keywords tied to clinician documentation.</p>
+{% endif %}
+<p class="muted">Ranking heuristics are experimental — always verify citations in workspace source trail.</p>
+{% endblock %}

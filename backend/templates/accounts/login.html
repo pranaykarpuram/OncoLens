@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Sign in · OncoLens{% endblock %}
+{% block heading %}Sign in{% endblock %}
+{% block subtitle %}Dashboard access for chart review{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width:460px;">
+  <form method="post" action="">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Sign in</button>
+  </form>
+  <p class="muted" style="margin-top:1rem;font-size:.82rem;">Demo: use <code>password123</code> after running <code>seed_demo_data</code>.</p>
+</div>
+{% endblock %}

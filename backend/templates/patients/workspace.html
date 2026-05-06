@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}{{ patient.full_name }} · Review workspace{% endblock %}
+{% block heading %}Patient review workspace{% endblock %}
+{% block subtitle %}Source-backed observations, timeline, intake links{% endblock %}
+
+{% block content %}
+<section class="card">
+  <h3 style="margin-top:0;">{{ patient.full_name }}</h3>
+  <div class="muted">
+    {{ patient.age }}y · Sex: {{ patient.sex|default:"—" }} · MRN {{ patient.medical_record_number }} ·
+    <span class="pill">{{ patient.get_review_status_display }}</span>
+  </div>
+  <p><strong>Oncology context field:</strong> {{ patient.primary_diagnosis }} · Stage narrative: {{ patient.cancer_stage|default:"—" }}</p>
+  <p><strong>Current treatment line (chart narrative):</strong> {{ patient.current_treatment|default:"Not captured" }}</p>
+  <a class="btn secondary" href="{% url 'reports:intake' %}?patient={{ patient.pk }}">Add report intake</a>
+</section>
+
+<section class="card danger">
+  <strong>Clinical question placeholder</strong>
+  <p class="muted" style="margin:.35rem 0 0;">
+    Tie future analytics here (e.g. “What changed?”, tumor board prompts). Responses must stay source-backed only.
+  </p>
+</section>
+
+<section class="card">
+  <h3 style="margin-top:0;">Source-backed observations · evidence board</h3>
+  {% for ob in source_observations %}
+    <article style="border:1px solid #e2e8f0;border-radius:10px;padding:.85rem;margin-bottom:.75rem;">
+      <strong>{{ ob.title }}</strong>
+      <div class="pill" style="display:inline-block;margin-left:.35rem;">{{ ob.get_status_display }}</div>
+      <p>{{ ob.explanation }}</p>
+      <p class="muted" style="font-size:.82rem;"><em>Evidence reason line:</em> {{ ob.reason|truncatechars:420 }}</p>
+      <p style="font-size:.82rem;">Source trail anchors:
+        {% for ev in ob.evidence_items.all %}
+          <span class="pill">{{ ev.title }}</span>
+        {% empty %}
+          <span class="muted">View source documents to trace snippets.</span>
+        {% endfor %}
+      </p>
+    </article>
+  {% empty %}
+    <p class="muted">No source-backed observations yet — upload reports or refresh rules after confirmations.</p>
+  {% endfor %}
+</section>
+
+<section class="card">
+  <h3 style="margin-top:0;">Timeline hints</h3>
+  <ul style="margin:0;padding-left:1.1rem;">
+    {% for e in timeline_events|slice:":16" %}
+      <li><strong>{{ e.date }}</strong> · {{ e.title }} · <span class="muted">{{ e.type }}</span>{% if e.detail %} · {{ e.detail|truncatechars:140 }}{% endif %}</li>
+    {% empty %}
+      <li class="muted">No timeline snippets yet.</li>
+    {% endfor %}
+  </ul>
+</section>
+
+<section class="card">
+  <h3 style="margin-top:0;">Reports · source viewer placeholders</h3>
+  {% for rep in reports|slice:":10" %}
+    <div style="border-bottom:1px solid #eef2ff;padding:.45rem 0;">
+      <strong>{{ rep.title }}</strong> · {{ rep.report_date }} · Status: {{ rep.get_parse_status_display }}
+      <a href="{% url 'reports:review_extraction' rep.pk %}">Review extraction</a>
+    </div>
+  {% empty %}
+    <p class="muted">No reports uploaded.</p>
+  {% endfor %}
+</section>
+
+<section class="card">
+  <h3 style="margin-top:0;">Observations (grouped)</h3>
+  {% for grp, rows in obs_grouped.items %}
+    <h4 style="margin-bottom:.35rem;text-transform:capitalize;">{{ grp|cut:"_" }}</h4>
+    <table class="simple" style="margin-bottom:.75rem;">
+      <thead><tr><th>Name</th><th>Value</th><th>Lab date</th><th>Confidence</th><th>Confirmation</th></tr></thead>
+      <tbody>
+      {% for o in rows %}
+        <tr>
+          <td>{{ o.name }}</td>
+          <td>{{ o.value_text|default:o.value_number }} {{ o.unit }}</td>
+          <td>{{ o.observed_at|default:"—" }}</td>
+          <td>{{ o.confidence }}</td>
+          <td>{{ o.get_confirmation_status_display }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  {% empty %}
+    <p class="muted">No extracted observations indexed yet.</p>
+  {% endfor %}
+</section>
+
+<section class="card">
+  <h3 style="margin-top:0;">Treatments timeline</h3>
+  <ul>
+    {% for t in treatments %}
+      <li><strong>{{ t.name }}</strong> · {{ t.start_date }} – {{ t.end_date|default:"ongoing field in chart narrative" }}</li>
+    {% empty %}<li class="muted">No treatments recorded.</li>{% endfor %}
+  </ul>
+</section>
+
+<section class="card">
+  <h3 style="margin-top:0;">Clinical notes capture</h3>
+  {% for n in clinical_notes|slice:":8" %}
+    <div style="border-bottom:1px solid #eef2ff;padding:.45rem 0;">
+      <strong>{{ n.note_date }}</strong> · {{ n.get_note_type_display }} · Author: {{ n.author|default:"—" }}
+      <p style="margin:.35rem 0 0;font-size:.9rem;">{{ n.text|truncatechars:320 }}</p>
+    </div>
+  {% empty %}
+    <p class="muted">No clinical notes logged.</p>
+  {% endfor %}
+
+  <h4>New note entry</h4>
+  <form method="post" class="muted">
+    {% csrf_token %}
+    {{ clinical_note_form.as_p }}
+    <button type="submit" name="add_note" value="1">Save note</button>
+  </form>
+</section>
+
+<section class="card">
+  <h3 style="margin-top:0;">Source viewer placeholder</h3>
+  <p class="muted">
+    Embed raw document viewers or OCR panes once media ingestion is hardened. Prefer inline links to ingestion review pages (“View Source Trail”).
+  </p>
+</section>
+{% endblock %}

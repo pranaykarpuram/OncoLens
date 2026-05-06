@@ -1,0 +1,149 @@
+% OncoLens — INFO 490 Technical Report (compile with pdflatex)
+% Path: docs/oncolens_technical_report.tex
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{verbatim}
+
+\title{OncoLens: Evidence-First Oncology Chart Review}
+\author{Pranay Karpuram et al.}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\section{Product Overview}
+
+\subsection{Problem statement}
+Clinical oncology information is fragmented across progress notes, labs, imaging reports, pathology, treatments, biomarkers, and longitudinal observations. Expert clinicians face time pressure and high cognitive load when reconciling this evidence. \textbf{OncoLens does not replace clinical judgment}; it helps compress, organize, and surface \emph{source-backed} excerpts from an existing chart so review is faster and more verifiable.
+
+\subsection{Target users}
+Medical oncologists, oncology nurses and clinical staff, and operations/admin users (role labels in \texttt{accounts.UserProfile}).
+
+\subsection{Final feature set (as implemented)}
+Session-authenticated JSON APIs with a Vite/React primary UI: \textbf{Review Queue}; \textbf{Patient Review Workspace} (Evidence Board, Source Viewer, ``What changed'' window, evidence summary, chart-scoped search, mark reviewed); \textbf{Evidence Search} (panel-wide); \textbf{Report Intake} and extraction/confirmation workflow; \textbf{Tumor Board Brief} generation; \textbf{Admin} summary API/screen; synthetic multi-tumor demo corpus via \texttt{seed\_demo\_data}.
+
+\subsection{Deprioritized / out of scope}
+Full EHR replacement; live Epic/Cerner integration; billing/scheduling; autonomous diagnosis or treatment recommendations; patient portal; HIPAA production deployment (prototype uses synthetic data only).
+
+\subsection{User flow}
+Login $\rightarrow$ Review Queue $\rightarrow$ open patient workspace $\rightarrow$ review ``What changed'' / Evidence Board $\rightarrow$ ask the chart or use Evidence Search $\rightarrow$ inspect source trail $\rightarrow$ upload/report intake or generate tumor board brief $\rightarrow$ mark chart reviewed when appropriate.
+
+\subsection{Design note}
+The product UI is the React app under \texttt{frontend/}. Django templates under \texttt{backend/templates/} support legacy/smoke pages (e.g.\ \texttt{/queue/} HTML); the assignment deliverable and daily use target the SPA.
+
+\begin{verbatim}
+[Browser: React + Vite :5173]
+        |  fetch(/api/... , credentials: include)
+        v
+[Django :8000]  session auth, CORS for localhost:5173
+        |  ORM: Patient, Report, Observation, EvidenceItem,
+        |       SourceBackedObservation, SearchIndexEntry, Brief, ...
+        v
+[Services]  parsers, rule engine, search (lexical + semantic),
+            brief builder, workspace_insights (deterministic)
+\end{verbatim}
+
+\section{Django System Architecture}
+
+\subsection{Apps and relationships}
+\texttt{INSTALLED\_APPS}: \texttt{accounts}, \texttt{patients}, \texttt{reports}, \texttt{evidence}, \texttt{briefs}, \texttt{core} (plus Django admin/corsheaders). Core domain links:
+\texttt{Patient} owns \texttt{Condition}, \texttt{Encounter}, \texttt{Treatment}, \texttt{ClinicalNote}, \texttt{DiagnosticReport}; reports and chart rows drive \texttt{Observation}, \texttt{EvidenceItem}, \texttt{SourceBackedObservation} (many-to-many to evidence items); \texttt{SearchIndexEntry} chunks power search/embeddings; \texttt{TumorBoardBrief} stores generated brief payloads. Names align with FHIR-inspired concepts (Patient, Encounter, Condition, Observation, DiagnosticReport-as-document), without claiming full FHIR interoperability.
+
+\subsection{Authentication and UX wiring}
+Django session authentication; demo users created by \texttt{manage.py seed\_demo\_data}. JSON routes live under \texttt{core/api\_views.py} and \texttt{core/urls.py}. The React client uses \texttt{fetch} with credentials and Vite proxies \texttt{/api} to \texttt{127.0.0.1:8000} (\texttt{frontend/vite.config.ts}). CORS allowlist includes the Vite dev origin (\texttt{config/settings.py}).
+
+\subsection{API surface (representative)}
+\texttt{/api/auth/login|logout|session/}; \texttt{/api/review-queue/}; \texttt{/api/patients/}; \texttt{/api/patients/<id>/evidence/}; \texttt{/api/patients/<id>/mark-reviewed/}; \texttt{/api/evidence/search/}; \texttt{/api/reports/intake/}; \texttt{/api/reports/<id>/extract/}; \texttt{/api/patients/<id>/brief/}; \texttt{/api/admin/summary/}.
+
+\subsection{Data generation}
+\texttt{python manage.py seed\_demo\_data} rebuilds deterministic synthetic charts (pancreatic adenocarcinoma flagship, pancreatic NET, CRC, lung, breast, ``light'' surveillance, general oncology). No PHI; suitable for coursework demos only.
+
+\subsection{Production-aware prototype choices}
+SQLite + JSON embedding column on \texttt{SearchIndexEntry}; model weights \emph{not} committed (\texttt{sentence-transformers} downloads on first encode to Hugging Face cache). Environment override \texttt{ONCOLENS\_EMBEDDING\_MODEL} selects the embedding model name.
+
+\section{AI Integration}
+
+\subsection{Hybrid retrieval + explainable rules}
+\textbf{AI-assisted layer:} local sentence embeddings for semantic retrieval over indexed chart text (\texttt{evidence/ai\_embeddings.py}, \texttt{evidence/search.py}). \textbf{Non-LLM / rule layer:} cancer-profile-aware \texttt{SourceBackedObservation} generation (\texttt{evidence/services.py}, profiles in \texttt{evidence/cancer\_profiles.py}); deterministic parsers for report intake (\texttt{reports/parsers.py}); deterministic workspace summaries (\texttt{evidence/workspace\_insights.py}); deterministic tumor board brief assembly (\texttt{briefs/services.py}).
+
+\subsection{Where AI enters the user flow}
+\texttt{POST /api/evidence/search} and the Patient Workspace ``Ask this chart'' path both call \texttt{search\_evidence()}. Results render with \texttt{result\_kind} keyword / semantic / hybrid, similarity score, and snippets for clinician verification.
+
+\subsection{Processing pipeline}
+Query $\rightarrow$ lexical hits over \texttt{SearchIndexEntry}, live \texttt{DiagnosticReport.raw\_text}, \texttt{ClinicalNote}, \texttt{Observation}, \texttt{EvidenceItem}, \texttt{SourceBackedObservation} $\rightarrow$ optional \texttt{semantic\_search\_candidates()} (cosine similarity vs.\ stored embeddings) $\rightarrow$ rank fusion / deduplication (\texttt{\_merge\_evidence\_rows}) $\rightarrow$ JSON to React cards and Source Viewer.
+
+\subsection{What gets embedded}
+Lexical chunks in \texttt{SearchIndexEntry} (built by \texttt{evidence/search\_index.py}); vectors stored as JSON float lists in SQLite for the prototype.
+
+\subsection{Guardrails}
+Embeddings rank \emph{existing} text only; outputs are excerpts and pointers, not new clinical facts. Disclaimers on briefs and workspace payloads state that content is not diagnosis or treatment recommendation. Extractions remain \texttt{unconfirmed} until clinician confirmation where applicable.
+
+\subsection{Cancer-aware profiles}
+Profiles for pancreatic ADC, pancreatic NET, colorectal, lung, breast, and general fallback supply vocabulary for search boosting and heuristic rules (markers, biomarkers, imaging terms, missing-data checks).
+
+\subsection{API-only alternative (not chosen)}
+An API-only stack could embed and answer via paid remote LLM/embedding APIs and ship text out of facility. Tradeoffs: recurring per-token cost, latency and vendor dependency, weaker reproducibility for grading, and serious privacy/compliance hurdles for PHI. The current design favors \textbf{local public models}, offline-capable rebuild (\texttt{rebuild\_embeddings}), and \textbf{zero marginal API cost} per query.
+
+\subsection{Tradeoffs}
+MiniLM-class models are compact but not oncology-specialized; first model load/downloads add delay; SQLite+JSON embeddings do not scale; semantic matches can correlate without clinical causality.
+
+\section{Evaluation \& Failure Analysis}
+
+\subsection{Automated regression}
+\texttt{python manage.py test} runs Django tests including parser checks, source-backed rules, semantic search hooks (with mocks where used), workspace insight fixtures, chart-review API tests, and API smoke paths (20 tests in the checked configuration).
+
+\subsection{Representative manual / demo scenarios}
+Latency values below are \textbf{approximate} local observations (CPU, demo DB); not instrumentation-grade.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}p{2.2cm}p{3.8cm}p{3cm}p{1.8cm}@{}}
+\toprule
+\textbf{Case} & \textbf{Input / expectation} & \textbf{Observed behavior} & \textbf{Latency (approx.)} \\
+\midrule
+A & Evidence Search: ``tumor marker getting worse''; expect Sarah Johnson (MRN \texttt{1058846}) CA 19--9-related hits & Hybrid/semantic rows surface marker/lab excerpts; workspace link present & $\sim$0.2--1.5\,s \\
+B & Query ``neuroendocrine marker rising''; expect Michael Chen Chromogranin A & Indexed + semantic text returns NET marker evidence & $\sim$0.2--1.5\,s \\
+C & Workspace ``Ask this chart'': ``possible progression'' / imaging language & Imaging-related snippets or source-backed imaging rules & $\sim$0.2--1\,s \\
+D & Intake paste with CA 19--9 / imaging wording & Parser creates \texttt{Observation} rows; many \texttt{unconfirmed} until review & $\sim$0.1--0.4\,s \\
+E & Tumor board brief for flagship patient & Structured sections (timeline, evidence of change, gaps, sources); React normalizes JSON for display & $\sim$0.1--0.5\,s \\
+F & Stable / light demo patient & ``What changed'' uses calmer copy; queue rules deprioritize clean stable charts after review & n/a \\
+\bottomrule
+\end{tabular}
+\caption{Manual evaluation matrix (synthetic data).}
+\end{table}
+
+\subsection{Failure cases (realistic)}
+\begin{enumerate}
+  \item \textbf{Semantic false positives:} related language can rank high without clinical relevance. Mitigation: show snippet, \texttt{result\_kind}, similarity, and source trail; clinician confirms.
+  \item \textbf{Parser / format brittleness:} regex-style extraction misses odd formats, heavy abbreviations, or noisy paste. Mitigation: \texttt{unconfirmed} status, extraction review UI, future NER/OCR.
+  \item \textbf{Operational:} stale index if intake without \texttt{rebuild\_embeddings --reindex-first}; cold-start model download delays first semantic query.
+\end{enumerate}
+
+\subsection{Before/after improvement (implemented)}
+\textbf{Before:} keyword-only retrieval limited paraphrases. \textbf{After:} \texttt{SearchIndexEntry} + local \texttt{sentence-transformers} embeddings merged with lexical rank (\texttt{evidence/search.py}), enabling hybrid ``Semantic/Hybrid/Keyword'' labels and cosine-ranked matches while keeping clinician-in-the-loop display.
+
+\section{Cost \& Production Readiness}
+
+\subsection{Compute and API spend}
+Queries use local CPU inference; marginal dollar cost per search is essentially zero absent hosting. Embedding rebuild batching uses \texttt{rebuild\_all\_search\_embeddings} (bounded RAM during encode).
+
+\subsection{Storage \& network}
+Text and JSON embeddings grow with documents and chunking; SQLite is acceptable only for demos. Production would favor Postgres + \texttt{pgvector} or a vector store, object storage for media, CDN for static frontend.
+
+\subsection{Scaling toward $\sim$10k active users/day}
+Separate app workers; async queues (Celery/RQ) for indexing/embeddings; horizontal API replicas; pagination on search; Redis/session store; Postgres; vector index; CDN. Add rate limiting and payload caps on search/intake.
+
+\subsection{Abuse and privacy}
+Throttle anonymous traffic (not applicable with auth), per-user quotas, upload size limits, audit logs, encryption in transit/at rest, RBAC --- all \textbf{not fully implemented}; required for real PHI.
+
+\subsection{Monitoring}
+Log parse failures, search latency, embedding errors, confirmation rates, and authentication anomalies.
+
+\section{Conclusion}
+OncoLens is an evidence-first intelligent web prototype: Django delivers structured oncology data and rule-based explanations; local semantic embeddings extend retrieval cost-effectively within a clinician-mediated workflow --- without asserting diagnostic or therapeutic autonomy.
+
+\end{document}

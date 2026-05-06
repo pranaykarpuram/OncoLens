@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Confirm extraction{% endblock %}
+{% block heading %}Extraction confirmation{% endblock %}
+{% block subtitle %}Row-level confirmation gates before surfaced evidence facts{% endblock %}
+
+{% block content %}
+<section class="card">
+  <p><strong>Report:</strong> {{ report.title }} · Patient <a href="{{ report.patient.get_absolute_url }}">{{ report.patient.full_name }}</a></p>
+  <p class="muted">Parse workflow status: {{ report.get_parse_status_display }}</p>
+</section>
+
+<form method="post">
+  {% csrf_token %}
+  {{ formset.management_form }}
+  <table class="simple card">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Value text</th>
+        <th>Value #</th>
+        <th>Unit</th>
+        <th>Observed date</th>
+        <th>Confirmation</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for f in formset %}
+      <tr>
+        {% for hidden in f.hidden_fields %}
+          {{ hidden }}
+        {% endfor %}
+        <td>{{ f.instance.name }}</td>
+        <td>{{ f.value_text }}</td>
+        <td>{{ f.value_number }}</td>
+        <td>{{ f.unit }}</td>
+        <td>{{ f.observed_at }}</td>
+        <td>{{ f.confirmation_status }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6" class="muted">No observation rows extracted for clinician confirmation.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <div style="display:flex;gap:.6rem;margin-top:1rem;flex-wrap:wrap;">
+    <button type="submit" name="action" value="">Save edits only</button>
+    <button type="submit" name="action" value="confirm_all" style="border-color:#0f766e;">Confirm extraction</button>
+    <button class="secondary" type="submit" name="action" value="reject_all" formnovalidate>Reject all rows</button>
+  </div>
+</form>
+<p class="muted">Confirmed rows populate rules for refreshed source-backed observations (regenerated from chart evidence).</p>
+{% endblock %}
