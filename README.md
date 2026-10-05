@@ -2,6 +2,14 @@
 
 **Evidence-first oncology chart review** — a Django + React prototype that helps clinicians find, organize, and verify scattered chart evidence (reports, notes, labs, imaging language, biomarkers, source-backed observations). **Not** an EHR replacement. **Not** for diagnosis or treatment recommendation. Synthetic demo data only; **not for clinical use**.
 
+
+## Demo
+
+<!-- DEMO_VIDEO -->
+<!-- Drop a YouTube / Loom / Drive embed or GIF below this line -->
+
+_Demo video coming soon. Synthetic demo data only — not for clinical use._
+
 ## Tech stack
 
 | Layer | Technology |
